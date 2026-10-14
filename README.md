@@ -21,14 +21,14 @@ pnpm preview    # 预览构建结果
 
 ## 页面与原型对应
 
-| 原型（Word 截图） | 路由 | 文件 |
-| --- | --- | --- |
-| 图3 系统首页（综合驾驶舱） | `#/dashboard` | `src/views/dashboard/index.vue` |
-| 图4 志愿服务项目列表 | `#/project/list` | `src/views/project/list.vue` |
-| 图5 志愿项目详情及报名页 | `#/project/detail/1` | `src/views/project/detail.vue` |
-| 图6 志愿者个人中心 | `#/personal/home` | `src/views/personal/index.vue` |
-| 图7 后台活动管理页 | `#/activity/list` | `src/views/activity/list.vue` |
-| 图8 数据统计分析页 | `#/statistics` | `src/views/statistics/index.vue` |
+| 原型（Word 截图）          | 路由                 | 文件                             |
+| -------------------------- | -------------------- | -------------------------------- |
+| 图3 系统首页（综合驾驶舱） | `#/dashboard`        | `src/views/dashboard/index.vue`  |
+| 图4 志愿服务项目列表       | `#/project/list`     | `src/views/project/list.vue`     |
+| 图5 志愿项目详情及报名页   | `#/project/detail/1` | `src/views/project/detail.vue`   |
+| 图6 志愿者个人中心         | `#/personal/home`    | `src/views/personal/index.vue`   |
+| 图7 后台活动管理页         | `#/activity/list`    | `src/views/activity/list.vue`    |
+| 图8 数据统计分析页         | `#/statistics`       | `src/views/statistics/index.vue` |
 
 原型中几张截图的菜单不一致，这里合并为一套统一菜单（`src/router/menu.ts`），菜单下的其他页面也都可以点击访问：
 
