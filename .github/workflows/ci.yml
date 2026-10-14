@@ -4,24 +4,28 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
-  typecheck:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          run_install: true
+        uses: pnpm/action-setup@v4
 
       - name: Use Node.js LTS
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          registry-url: https://registry.npmjs.org/
           cache: pnpm
 
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
       - name: Type Check
-        run: npm run typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint

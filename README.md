@@ -13,6 +13,12 @@ pnpm build      # 构建到 dist/，使用相对路径 + hash 路由，可直接
 pnpm preview    # 预览构建结果
 ```
 
+> 构建产物需要通过 HTTP 服务访问（`pnpm preview` 或 `npx serve dist`），直接双击 `dist/index.html` 会因浏览器限制而白屏。
+
+## 在线预览（GitHub Pages）
+
+推送到 `main` 后，`.github/workflows/gh-pages.yml` 会自动构建并部署到 <https://593496637.github.io/city-volunteer/>。首次使用需在仓库 Settings → Pages 中将 Source 设为 **GitHub Actions**。
+
 ## 页面与原型对应
 
 | 原型（Word 截图） | 路由 | 文件 |
