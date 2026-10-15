@@ -7,6 +7,7 @@ name: Deploy to Server
 #   SERVER_PASSWORD  登录密码（与 SERVER_SSH_KEY 二选一）
 #   SERVER_SSH_KEY   SSH 私钥（可选，优先于密码）
 #   SERVER_PORT      SSH 端口（可选，默认 22）
+#   SITE_PORT        网站端口（可选，默认 8080 起第一个空闲端口；需在安全组放行）
 # 未配置 SERVER_HOST 时跳过部署。
 
 on:
@@ -28,6 +29,7 @@ jobs:
       SERVER_PORT: ${{ secrets.SERVER_PORT }}
       SSHPASS: ${{ secrets.SERVER_PASSWORD }}
       SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      SITE_PORT: ${{ secrets.SITE_PORT }}
     steps:
       - name: Check secrets
         id: check
@@ -59,8 +61,10 @@ jobs:
           tar -czf city-volunteer-dist.tar.gz -C dist .
 
       - name: Upload and install on server
+        id: install
         if: steps.check.outputs.skip != 'true'
         run: |
+          set -o pipefail
           PORT="${SERVER_PORT:-22}"
           SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -p $PORT"
           SCP_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -P $PORT"
@@ -77,13 +81,17 @@ jobs:
           $SSH $SSH_OPTS "$SERVER_USER@$SERVER_HOST" "mkdir -p /tmp/city-volunteer-deploy"
           $SCP $SCP_OPTS city-volunteer-dist.tar.gz scripts/deploy-server.sh "$SERVER_USER@$SERVER_HOST:/tmp/city-volunteer-deploy/"
           if [ "$SERVER_USER" = "root" ]; then RUN="bash"; else RUN="sudo bash"; fi
-          $SSH $SSH_OPTS "$SERVER_USER@$SERVER_HOST" "$RUN /tmp/city-volunteer-deploy/deploy-server.sh"
+          $SSH $SSH_OPTS "$SERVER_USER@$SERVER_HOST" "SITE_PORT='$SITE_PORT' $RUN /tmp/city-volunteer-deploy/deploy-server.sh" | tee deploy.log
+          echo "port=$(grep -oE 'CITY_VOLUNTEER_PORT=[0-9]+' deploy.log | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test
         if: steps.check.outputs.skip != 'true'
+        env:
+          PORT: ${{ steps.install.outputs.port }}
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://$SERVER_HOST/" || true)
-          echo "http://$SERVER_HOST/ -> HTTP $code"
+          url="http://$SERVER_HOST:$PORT/"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
+          echo "$url -> HTTP $code"
           if [ "$code" != "200" ]; then
-            echo "::warning::从 GitHub 访问 http://$SERVER_HOST/ 返回 $code，请检查云服务器安全组是否放行 TCP 80"
+            echo "::warning::从 GitHub 访问 $url 返回 $code，请在云服务器安全组中放行入方向 TCP $PORT"
           fi
