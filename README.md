@@ -21,7 +21,7 @@ pnpm preview    # 预览构建结果
 
 ## 部署到自有服务器
 
-`.github/workflows/deploy-server.yml` 会在推送到 `main`（或在 Actions 页面手动运行）时构建项目，通过 SSH 上传到服务器，并执行 `scripts/deploy-server.sh` 安装 Nginx、发布到 `/var/www/city-volunteer`（80 端口）。
+`.github/workflows/deploy-server.yml` 会在推送到 `main`（或在 Actions 页面手动运行）时构建项目，通过 SSH 上传到服务器，并执行 `scripts/deploy-server.sh` 安装 Nginx、发布到 `/var/www/city-volunteer`。站点使用独立端口（默认 8080 起第一个空闲端口），只写入自己的 `conf.d/city-volunteer.conf`，不影响服务器上已有的站点；需在云服务器安全组中放行该端口。
 
 需要先在仓库 Settings → Secrets and variables → Actions 中添加：
 
@@ -32,6 +32,7 @@ pnpm preview    # 预览构建结果
 | `SERVER_PASSWORD` | 登录密码（与 SSH 私钥二选一）   |
 | `SERVER_SSH_KEY`  | SSH 私钥（可选，优先于密码）    |
 | `SERVER_PORT`     | SSH 端口（可选，默认 22）       |
+| `SITE_PORT`       | 网站端口（可选，默认 8080）     |
 
 未配置时该工作流会自动跳过。也可以手动部署：本地 `pnpm build && tar -czf city-volunteer-dist.tar.gz -C dist .`，把压缩包和 `scripts/deploy-server.sh` 上传到服务器同一目录后执行 `bash deploy-server.sh`。
 
