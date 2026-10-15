@@ -1,0 +1,89 @@
+name: Deploy to Server
+
+# 推送到 main 或手动触发时，构建并通过 SSH 部署到自有服务器。
+# 需要在仓库 Settings → Secrets and variables → Actions 中配置：
+#   SERVER_HOST      服务器 IP 或域名
+#   SERVER_USER      登录用户（需 root 或有 sudo 权限，脚本会安装/配置 Nginx）
+#   SERVER_PASSWORD  登录密码（与 SERVER_SSH_KEY 二选一）
+#   SERVER_SSH_KEY   SSH 私钥（可选，优先于密码）
+#   SERVER_PORT      SSH 端口（可选，默认 22）
+# 未配置 SERVER_HOST 时跳过部署。
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      SSHPASS: ${{ secrets.SERVER_PASSWORD }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+    steps:
+      - name: Check secrets
+        id: check
+        run: |
+          if [ -z "$SERVER_HOST" ] || [ -z "$SERVER_USER" ]; then
+            echo "::notice::未配置 SERVER_HOST / SERVER_USER，跳过服务器部署"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+
+      - name: Install pnpm
+        if: steps.check.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js LTS
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Build
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          tar -czf city-volunteer-dist.tar.gz -C dist .
+
+      - name: Upload and install on server
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          PORT="${SERVER_PORT:-22}"
+          SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -p $PORT"
+          SCP_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -P $PORT"
+          if [ -n "$SERVER_SSH_KEY" ]; then
+            install -m 600 /dev/null ~/deploy_key
+            printf '%s\n' "$SERVER_SSH_KEY" > ~/deploy_key
+            SSH_OPTS="$SSH_OPTS -i $HOME/deploy_key"
+            SCP_OPTS="$SCP_OPTS -i $HOME/deploy_key"
+            SSH="ssh"; SCP="scp"
+          else
+            sudo apt-get install -y sshpass >/dev/null
+            SSH="sshpass -e ssh"; SCP="sshpass -e scp"
+          fi
+          $SSH $SSH_OPTS "$SERVER_USER@$SERVER_HOST" "mkdir -p /tmp/city-volunteer-deploy"
+          $SCP $SCP_OPTS city-volunteer-dist.tar.gz scripts/deploy-server.sh "$SERVER_USER@$SERVER_HOST:/tmp/city-volunteer-deploy/"
+          if [ "$SERVER_USER" = "root" ]; then RUN="bash"; else RUN="sudo bash"; fi
+          $SSH $SSH_OPTS "$SERVER_USER@$SERVER_HOST" "$RUN /tmp/city-volunteer-deploy/deploy-server.sh"
+
+      - name: Smoke test
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://$SERVER_HOST/" || true)
+          echo "http://$SERVER_HOST/ -> HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::从 GitHub 访问 http://$SERVER_HOST/ 返回 $code，请检查云服务器安全组是否放行 TCP 80"
+          fi

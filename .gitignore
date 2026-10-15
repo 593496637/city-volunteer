@@ -11,3 +11,6 @@ yarn.lock
 package-lock.json
 
 *.log
+
+# 服务器部署包（由 dist 打包生成）
+deploy-pkg/
